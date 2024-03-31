@@ -1,4 +1,5 @@
 use comrak::{
+    arena_tree::NodeEdge,
     nodes::{AstNode, NodeValue},
     parse_document, Arena, ComrakOptions,
 };
@@ -22,6 +23,50 @@ where
     }
 }
 
+fn iter_nodes_return_list<'a, F, R>(node: &'a AstNode<'a>, f: &F) -> Vec<R>
+where
+    F: Fn(&'a AstNode<'a>) -> Vec<R>,
+{
+    let mut results = Vec::new();
+
+    // Collect results from the current node
+    results.extend(f(node));
+
+    // Recursively collect results from child nodes
+    for c in node.children() {
+        results.extend(iter_nodes_return_list(c, f));
+    }
+
+    results
+}
+
+fn extract_text<'a>(node: &'a AstNode<'a>) -> String {
+    let texts: Vec<String> = iter_nodes_return_list(node, &|node| match node.data.borrow().value {
+        NodeValue::Text(ref text) => vec![text.clone()],
+        _ => vec![],
+    });
+
+    // Concatenate all strings collected from the nodes
+    texts.concat()
+}
+
+fn extract_text_traverse<'a>(root: &'a AstNode<'a>) -> String {
+    let mut output_text = String::new();
+
+    // Use `traverse` to get an iterator of `NodeEdge` and process each.
+    for edge in root.traverse() {
+        if let NodeEdge::Start(node) = edge {
+            // Handle the Start edge to process the node's value.
+            if let NodeValue::Text(ref text) = node.data.borrow().value {
+                // If the node is a text node, append its text to `output_text`.
+                output_text.push_str(text);
+            }
+        }
+    }
+
+    output_text
+}
+
 /// Extracts links from the given Markdown text.
 pub fn extract_links(markdown_input: &str, file_path: &str) -> Vec<Link> {
     let arena = Arena::new();
@@ -34,14 +79,7 @@ pub fn extract_links(markdown_input: &str, file_path: &str) -> Vec<Link> {
             let url = link.url.clone();
 
             // Initialize an empty String to accumulate link text
-            let mut title = String::new();
-
-            // Iterate through the children of the link node to accumulate text
-            for child in node.children() {
-                if let NodeValue::Text(text) = &child.data.borrow().value {
-                    title.push_str(text);
-                }
-            }
+            let title = extract_text_traverse(node);
 
             links.borrow_mut().push(Link {
                 source_file: file_path.to_string(),
@@ -80,5 +118,22 @@ mod tests {
     #[test]
     fn empty_string() {
         assert!(extract_links("", "").is_empty());
+    }
+
+    #[test]
+    fn extract_text_test() {
+        let markdown_input = "Hello, *worl[d](https://example.com/)*";
+        let arena = Arena::new();
+        let options = ComrakOptions::default();
+        let root = parse_document(&arena, markdown_input, &options);
+        assert_eq!("Hello, world", extract_text(root));
+    }
+    #[test]
+    fn extract_text_traverse_test() {
+        let markdown_input = "Hello, *worl[d](https://example.com/)*";
+        let arena = Arena::new();
+        let options = ComrakOptions::default();
+        let root = parse_document(&arena, markdown_input, &options);
+        assert_eq!("Hello, world", extract_text_traverse(root));
     }
 }
