@@ -77,28 +77,51 @@ fn extract_text<'a>(root: &'a AstNode<'a>) -> String {
     output_text
 }
 
+/// Convert AstNode with value NodeValue::Link into a Link. Helper function for
+/// `filter_map()`. Not recursive.
+///
+/// # Arguments:
+///
+/// - `node`: - Reference to AstNode produced by AstNode.children() or AstNode.descendants
+/// - `file_path`: - `&str` path to source file node was produced from.
+///
+/// # Returns:
+///
+/// - `Link` representing deconstructed link from markdown.
+///
+/// # Examples:
+///
+/// Produce a `Vec<Link>` from a node iterator:
+///
+/// ```ignore
+///    root.descendants()
+///        .filter_map(|node| extract_link_from_node(node, file_path))
+///        .collect()
+/// ```
+fn extract_link_from_node<'a>(node: &'a AstNode<'a>, file_path: &str) -> Option<Link> {
+    if let NodeValue::Link(link) = &node.data.borrow().value {
+        let url = link.url.clone();
+        let title = extract_text(node);
+
+        Some(Link {
+            source_file: file_path.to_string(),
+            description: title,
+            url,
+        })
+    } else {
+        None
+    }
+}
 /// Extracts links from the given Markdown text.
 pub fn extract_links(markdown_input: &str, file_path: &str) -> Vec<Link> {
     let arena = Arena::new();
     let options = ComrakOptions::default();
     let root = parse_document(&arena, markdown_input, &options);
 
-    let mut links = Vec::new();
-    for node in root.descendants() {
-        if let NodeValue::Link(link) = &node.data.borrow().value {
-            let url = link.url.clone();
-
-            // Initialize an empty String to accumulate link text
-            let title = extract_text(node);
-
-            links.push(Link {
-                source_file: file_path.to_string(),
-                description: title,
-                url,
-            });
-        }
-    }
-    links
+    //let mut links = Vec::new();
+    root.descendants()
+        .filter_map(|node| extract_link_from_node(node, file_path))
+        .collect()
 }
 
 #[cfg(test)]
