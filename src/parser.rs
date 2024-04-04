@@ -3,7 +3,6 @@ use comrak::{
     parse_document, Arena, ComrakOptions,
 };
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
 
 /// Represents a hyperlink extracted from a markdown document.
 ///
@@ -84,7 +83,7 @@ pub fn extract_links(markdown_input: &str, file_path: &str) -> Vec<Link> {
     let options = ComrakOptions::default();
     let root = parse_document(&arena, markdown_input, &options);
 
-    let links = RefCell::new(Vec::new());
+    let mut links = Vec::new();
     for node in root.descendants() {
         if let NodeValue::Link(link) = &node.data.borrow().value {
             let url = link.url.clone();
@@ -92,14 +91,14 @@ pub fn extract_links(markdown_input: &str, file_path: &str) -> Vec<Link> {
             // Initialize an empty String to accumulate link text
             let title = extract_text(node);
 
-            links.borrow_mut().push(Link {
+            links.push(Link {
                 source_file: file_path.to_string(),
                 description: title,
                 url,
             });
         }
     }
-    links.into_inner()
+    links
 }
 
 #[cfg(test)]
