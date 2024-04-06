@@ -64,17 +64,17 @@ pub struct Link {
 /// # Note
 /// This function does not preserve the original formatting. It purely concatenates text content found within text nodes.
 fn extract_text<'a>(root: &'a AstNode<'a>) -> String {
-    let mut output_text = String::new();
-
     // Use `traverse` to get an iterator of `NodeEdge` and process each.
-    for node in root.descendants() {
-        if let NodeValue::Text(ref text) = node.data.borrow().value {
-            // If the node is a text node, append its text to `output_text`.
-            output_text.push_str(text);
-        }
-    }
-
-    output_text
+    root.descendants()
+        .filter_map(|node| {
+            if let NodeValue::Text(ref text) = node.data.borrow().value {
+                // If the node is a text node, append its text to `output_text`.
+                Some(text.clone())
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 /// Convert AstNode with value NodeValue::Link into a Link. Helper function for
@@ -112,7 +112,34 @@ fn extract_link_from_node<'a>(node: &'a AstNode<'a>, file_path: &str) -> Option<
         None
     }
 }
-/// Extracts links from the given Markdown text.
+
+/// Extracts hyperlinks from a Markdown document.
+///
+/// Parses the given Markdown input and extracts all hyperlinks,
+/// transforming them into a collection of `Link` objects. Each `Link`
+/// object contains details about the hyperlink, such as its URL and the text
+/// description associated with it. This function supports relative links,
+/// utilizing the `file_path` parameter to resolve them accordingly.
+///
+/// # Inputs
+///
+/// - `markdown_input`: A string slice (`&str`) containing the Markdown content to be parsed.
+/// - `file_path`: A string slice (`&str`) representing the path of the Markdown file, used to resolve relative links.
+///
+/// # Output
+///
+/// - Returns a vector (`Vec<Link>`) containing all extracted links from the Markdown document.
+///
+/// # Examples
+///
+/// ```
+/// let markdown = "[OpenAI](https://openai.com)";
+/// let file_path = "/docs/my_markdown.md";
+/// let links = extract_links(markdown, file_path);
+/// assert_eq!(links.len(), 1);
+/// ```
+///
+/// Note: The `Link` type and its structure are not defined in this documentation snippet.
 pub fn extract_links(markdown_input: &str, file_path: &str) -> Vec<Link> {
     let arena = Arena::new();
     let options = ComrakOptions::default();
