@@ -1,11 +1,16 @@
 use clap::{Parser, ValueHint};
-use std::{fs::File, io::Read};
+use std::{fs::File, io::Read, process};
 
 mod parser;
 use crate::parser::*;
 
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+#[clap(
+    author,
+    version,
+    about,
+    long_about = "Extracts link data from markdown files producing json or character-delimited text.\nOutput is sent to STDOUT."
+)]
 struct Args {
     /// Input filename
     #[clap(value_parser, value_hint = ValueHint::FilePath)]
@@ -31,24 +36,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let file_contents = match load_file(&args.filename) {
         Ok(contents) => contents,
-        Err(e) => return Err(Box::new(e)),
+        Err(e) => {
+            eprintln!(
+                "Failed to read filename {}: {}",
+                &args.filename.display(),
+                e
+            );
+            process::exit(1);
+        }
     };
 
-    let file_path_as_string = match &args.filename.as_path().to_str() {
-        Some(path_string) => path_string,
-        None => "",
-    };
-
-    let link_list = extract_links(&file_contents, file_path_as_string);
+    let link_list = extract_links(&file_contents, &args.filename.display().to_string());
     if args.json {
         let json_output = serde_json::to_string(&link_list)?;
         println!("{}", json_output);
     } else {
         let text_output: String = link_list.iter().fold(String::new(), |mut output, link| {
-            output += &format!(
+            output.push_str(&format!(
                 "{}{}{}{}{}\n",
                 link.source_file, args.separator, link.description, args.separator, link.url
-            );
+            ));
             output
         });
         println!("{}", text_output);
