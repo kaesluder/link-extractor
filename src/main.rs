@@ -1,5 +1,6 @@
 use clap::{Parser, ValueHint};
-use std::{fs::File, io::Read, process};
+use csv::WriterBuilder;
+use std::{fs::File, io::Read};
 
 mod parser;
 use crate::parser::*;
@@ -12,9 +13,9 @@ use crate::parser::*;
     long_about = "Extracts link data from markdown files producing json or character-delimited text.\nOutput is sent to STDOUT."
 )]
 struct Args {
-    /// Input filename
+    /// Input filenames
     #[clap(value_parser, value_hint = ValueHint::FilePath)]
-    filename: std::path::PathBuf,
+    filenames: Vec<std::path::PathBuf>,
 
     /// Output JSON format
     #[clap(short, long)]
@@ -32,33 +33,39 @@ fn load_file(filename: &std::path::PathBuf) -> Result<String, std::io::Error> {
     Ok(contents)
 }
 
+fn parse_from_filename(filename: &std::path::PathBuf) -> Result<Vec<parser::Link>, std::io::Error> {
+    let contents = load_file(filename)?;
+    let links = extract_links(&contents, &filename.to_string_lossy().into_owned());
+    Ok(links)
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let file_contents = match load_file(&args.filename) {
-        Ok(contents) => contents,
-        Err(e) => {
-            eprintln!(
-                "Failed to read filename {}: {}",
-                &args.filename.display(),
-                e
-            );
-            process::exit(1);
-        }
-    };
+    let link_list: Vec<parser::Link> = args
+        .filenames
+        .iter()
+        .filter_map(|filename| match parse_from_filename(filename) {
+            Ok(links) => Some(links),
+            Err(e) => {
+                eprintln!("Error parsing file {:?}: {}", filename, e);
+                None
+            }
+        })
+        .flat_map(|links| links.into_iter())
+        .collect();
 
-    let link_list = extract_links(&file_contents, &args.filename.display().to_string());
     if args.json {
-        let json_output = serde_json::to_string(&link_list)?;
-        println!("{}", json_output);
+        // json serializer
+        println!("{}", serde_json::to_string_pretty(&link_list)?);
     } else {
-        let text_output: String = link_list.iter().fold(String::new(), |mut output, link| {
-            output.push_str(&format!(
-                "{}{}{}{}{}\n",
-                link.source_file, args.separator, link.description, args.separator, link.url
-            ));
-            output
-        });
-        println!("{}", text_output);
+        // csv serializer
+        let mut wtr = WriterBuilder::new()
+            .delimiter(args.separator.as_bytes()[0])
+            .from_writer(std::io::stdout());
+        for link in link_list {
+            wtr.serialize(link)?;
+        }
+        wtr.flush()?;
     }
 
     Ok(())
