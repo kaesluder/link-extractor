@@ -36,14 +36,10 @@ pub struct Link {
 }
 
 /// Extracts and concatenates all text from a given abstract syntax tree (AST) node and its descendants.
-///
-/// This function traverses an AST, starting from a specified root node, and accumulates all text
-/// content found within text nodes into a single `String`. This process involves iterating over the
-/// descendants of the root node, identifying text nodes, and appending their content to the output string.
-///
+/// Descendants are processed in tree order.
+/// 
 /// # Arguments
-/// * `root` - A reference to the root `AstNode` from which to start text extraction. This node and its
-///            descendants will be traversed to find and concatenate text.
+/// * `root` - A reference to the root `AstNode`.
 ///
 /// # Returns
 /// A `String` containing all text content extracted from the root node and its descendants. If no text
@@ -64,7 +60,7 @@ pub struct Link {
 /// # Note
 /// This function does not preserve the original formatting. It purely concatenates text content found within text nodes.
 fn extract_text<'a>(root: &'a AstNode<'a>) -> String {
-    // Use `traverse` to get an iterator of `NodeEdge` and process each.
+    // Use `descendants` to get an iterator of `NodeEdge` and process each.
     root.descendants()
         .filter_map(|node| {
             if let NodeValue::Text(ref text) = node.data.borrow().value {
@@ -116,10 +112,7 @@ fn extract_link_from_node<'a>(node: &'a AstNode<'a>, file_path: &str) -> Option<
 /// Extracts hyperlinks from a Markdown document.
 ///
 /// Parses the given Markdown input and extracts all hyperlinks,
-/// transforming them into a collection of `Link` objects. Each `Link`
-/// object contains details about the hyperlink, such as its URL and the text
-/// description associated with it. This function supports relative links,
-/// utilizing the `file_path` parameter to resolve them accordingly.
+/// transforming them into a collection of `Link` objects. 
 ///
 /// # Inputs
 ///
@@ -138,8 +131,7 @@ fn extract_link_from_node<'a>(node: &'a AstNode<'a>, file_path: &str) -> Option<
 /// let links = extract_links(markdown, file_path);
 /// assert_eq!(links.len(), 1);
 /// ```
-///
-/// Note: The `Link` type and its structure are not defined in this documentation snippet.
+
 pub fn extract_links(markdown_input: &str, file_path: &str) -> Vec<Link> {
     let arena = Arena::new();
     let options = ComrakOptions::default();
