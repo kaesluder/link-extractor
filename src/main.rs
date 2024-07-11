@@ -5,6 +5,9 @@ use std::{fs::File, io::Read};
 mod parser;
 use crate::parser::*;
 
+mod parser_scraper;
+use crate::parser_scraper::*;
+
 #[derive(Parser, Debug)]
 #[clap(
     author,
@@ -36,7 +39,7 @@ struct Args {
 ///
 /// - `Ok(string)`: String contents of file.
 /// - `Err(e)`: Error condition.
-fn load_file(filename: &std::path::PathBuf) -> Result<String, std::io::Error> {
+pub fn load_file(filename: &std::path::PathBuf) -> Result<String, std::io::Error> {
     let mut file = File::open(filename)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
