@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let link_list: Vec<parser::Link> = args
         .filenames
         .iter()
-        .filter_map(|filename| match parse_from_filename(filename) {
+        .filter_map(|filename| match extract_links_from_file_scraper(filename) {
             Ok(links) => Some(links),
             Err(e) => {
                 eprintln!("Error parsing file {:?}: {}", filename, e);

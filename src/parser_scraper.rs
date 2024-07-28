@@ -2,7 +2,7 @@ use crate::parser::Link;
 use comrak::{markdown_to_html, Options};
 use scraper::Html;
 
-pub fn parse_file_scraper(file_path: &str) -> Result<Html, Box<dyn std::error::Error>> {
+pub fn parse_file_scraper(file_path: &std::path::PathBuf) -> Result<Html, Box<dyn std::error::Error>> {
     let file_content = std::fs::read_to_string(file_path)?;
     let markdown_content = markdown_to_html(&file_content, &Options::default());
     let fragment = Html::parse_fragment(&markdown_content);
@@ -11,7 +11,7 @@ pub fn parse_file_scraper(file_path: &str) -> Result<Html, Box<dyn std::error::E
 
 pub fn extract_links_scraper(
     document: &Html,
-    file: &str,
+    file_path: &std::path::PathBuf,
 ) -> Result<Vec<Link>, Box<dyn std::error::Error>> {
     use scraper::Selector;
     let selector = Selector::parse("a")?;
@@ -22,11 +22,16 @@ pub fn extract_links_scraper(
             links.push(Link {
                 description: text,
                 url: href.to_string(),
-                source_file: file.to_string(),
+                source_file: file_path.to_string_lossy().to_string(),
             });
         }
     }
     Ok(links)
+}
+
+pub fn extract_links_from_file_scraper(file_path: &std::path::PathBuf) -> Result<Vec<Link>, Box<dyn std::error::Error>> {
+    let document = parse_file_scraper(file_path)?;
+    extract_links_scraper(&document, file_path)
 }
 
 // parser_scraper.rs
@@ -56,9 +61,10 @@ mod tests {
 
     #[test]
     fn test_parse_file_scraper() {
-        let test_file_path = "test_markdown/three_links.md";
-        // Call the function to be tested
-        let result = parse_file_scraper(test_file_path);
+        let test_file_path = PathBuf::from("test_markdown/three_links.md");
+
+        let result = parse_file_scraper(&test_file_path);
+        println!("{:?}", result);
 
         // Check the result
         assert!(result.is_ok());
@@ -71,7 +77,7 @@ mod tests {
 
     #[test]
     fn test_extract_links_scraper() {
-        let test_file_path = "test_markdown/three_links.md";
+        let test_file_path = PathBuf::from("test_markdown/three_links.md");
 
         let document = parse_file_scraper(&test_file_path).unwrap();
         // Call the function to be tested
